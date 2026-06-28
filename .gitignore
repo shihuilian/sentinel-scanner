@@ -1,0 +1,24 @@
+# ── Node / dependency caches (this project is zero-dependency; keep it clean) ──
+node_modules/
+.npm-cache/
+.npm/
+
+# ── Scan data produced at runtime ──
+.data/
+
+# ── Logs / OS noise ──
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# ── Editor / IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Coverage / build artifacts (none by default, but be safe) ──
+coverage/
+dist/
+build/

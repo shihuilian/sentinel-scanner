@@ -1,0 +1,13 @@
+{
+  "name": "sentinel-scanner",
+  "version": "1.4.0",
+  "private": true,
+  "description": "Sentinel — Web 应用安全扫描器（OWASP Top 10 检测 + 报告导出）",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
