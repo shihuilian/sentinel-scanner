@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="system">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sentinel — Web 攻击面扫描器</title>
+    <meta name="description" content="Sentinel 是一个 Web 应用安全扫描器：覆盖 OWASP Top 10 的主动/被动检测、攻击面可视化与可打印渗透报告。" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2l12 5v8c0 8-5 13-12 15C9 28 4 23 4 15V7z' fill='none' stroke='%23e8b04b' stroke-width='2'/%3E%3Cpath d='M9 16h14M16 9v14' stroke='%23e8b04b' stroke-width='2'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <canvas id="threatfield" aria-hidden="true"></canvas>
+    <div class="grain" aria-hidden="true"></div>
+
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M16 2l12 5v8c0 8-5 13-12 15C9 28 4 23 4 15V7z" fill="none" stroke="currentColor" stroke-width="2"/>
+            <path d="M9 16h14M16 9v14" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <div class="brand__text">
+            <span class="brand__name">Sentinel</span>
+            <span class="brand__tag">Web Attack-Surface Scanner</span>
+          </div>
+        </div>
+        <div class="topbar__right">
+          <span class="status-pill" id="statusPill"><span class="status-pill__dot"></span><span id="statusText">待命</span></span>
+          <div class="theme-switch" role="group" aria-label="主题">
+            <button data-theme-set="light" title="浅色" aria-label="浅色">☀</button>
+            <button data-theme-set="dark" title="深色" aria-label="深色">☾</button>
+            <button data-theme-set="system" title="跟随系统" aria-label="跟随系统">◐</button>
+          </div>
+        </div>
+      </header>
+
+      <nav class="nav" role="tablist" aria-label="视图">
+        <button class="nav__btn is-active" id="navScan" data-view="scan">扫描</button>
+        <button class="nav__btn" id="navHistory" data-view="history">历史记录</button>
+      </nav>
+
+      <div id="scanPane">
+        <section class="hero">
+          <p class="kicker">OWASP TOP 10 攻击面扫描</p>
+          <h1 class="hero__title">把一次攻击面侦察<br><em>装进一个命令行</em></h1>
+          <p class="hero__sub">
+            Web 漏洞扫描引擎 —— 被动审计（安全头 / Cookie / TLS / 敏感信息 / 端点 / CORS / 路径遍历 / JWT / SSRF / XXE）与主动注入（XSS · SQLi · CSRF · 开放重定向），
+            支持登录态认证扫描（自动登录并携带会话 Cookie 探测受保护页面），实时流式回传，结果以可执行的安全报告交付。
+          </p>
+
+          <div class="console glass">
+            <div class="console__row">
+              <label class="console__label" for="target">目标</label>
+              <div class="console__input">
+                <span class="console__sigil">›</span>
+                <input id="target" spellcheck="false" autocomplete="off" placeholder="https://target.example.com" />
+              </div>
+              <button id="startBtn" class="btn-scan">
+                <span class="btn-scan__label">开始扫描</span>
+                <svg class="btn-scan__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+            <div class="console__row console__row--auth">
+              <label class="console__label" for="cookie">会话</label>
+              <div class="console__input">
+                <span class="console__sigil">🔑</span>
+                <input id="cookie" spellcheck="false" autocomplete="off" placeholder="session=…（可选，留空为未授权扫描）" />
+              </div>
+              <button id="authBtn" class="btn-auth" type="button" title="用内置靶机的 admin / demo 登录并自动填入会话 Cookie">用靶机登录</button>
+            </div>
+            <div class="console__foot">
+              <span class="console__presets">
+                <button class="preset" data-preset="/demo">扫描内置靶机 /demo</button>
+              </span>
+              <span class="console__note"><span class="dot"></span>仅扫描你拥有或已获书面授权的目标。内置 <code>/demo</code> 为合法自检靶机。</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="scanview glass" id="scanView" hidden>
+          <div class="scanview__head">
+            <span class="scanview__title">实时侦察</span>
+            <span class="scanview__pct" id="scanPct">0%</span>
+          </div>
+          <div class="rail" id="rail"></div>
+          <div class="progress"><div class="progress__fill" id="progressFill"></div></div>
+          <pre class="log" id="log" aria-live="polite"></pre>
+        </section>
+
+        <section class="errorbox glass" id="errorBox" hidden>
+          <strong>扫描中止</strong> <span id="errorMsg"></span>
+        </section>
+
+        <section class="results" id="results" hidden>
+          <div class="report-head glass">
+            <div class="report-head__meta">
+              <span class="report-kicker">扫描报告</span>
+              <h2 class="report-target" id="reportTarget"></h2>
+              <div class="report-facts">
+                <span><i>耗时</i><b id="factDuration">—</b></span>
+                <span><i>发现</i><b id="factTotal">—</b></span>
+                <span><i>完成于</i><b id="factTime">—</b></span>
+              </div>
+            </div>
+            <div class="report-head__gauge">
+              <svg class="gauge" viewBox="0 0 200 116" aria-hidden="true">
+                <path class="gauge__track" d="M12 104 A88 88 0 0 1 188 104" />
+                <path class="gauge__value" id="gaugeValue" d="M12 104 A88 88 0 0 1 188 104" />
+              </svg>
+              <div class="gauge__readout">
+                <span class="gauge__num" id="gaugeNum">0</span>
+                <span class="gauge__scale">/ 100 风险</span>
+                <span class="gauge__band" id="gaugeBand">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="severity-bar glass" id="severityBar" aria-hidden="true"></div>
+
+          <div class="toolbar glass">
+            <div class="filters" id="filterBar"></div>
+            <div class="exports">
+              <button class="btn-ghost" id="exportJson">导出 JSON</button>
+              <button class="btn-ghost" id="exportHtml">导出报告 (HTML)</button>
+              <button class="btn-ghost" id="printReport">打印 / PDF</button>
+            </div>
+          </div>
+
+          <div class="findings" id="findings"></div>
+
+          <details class="method glass">
+            <summary>检测方法学（Methodology）</summary>
+            <div class="method__body" id="methodBody"></div>
+          </details>
+        </section>
+      </div>
+
+      <section class="history glass" id="historyPane" hidden>
+        <div class="history__head">
+          <div>
+            <span class="report-kicker">SCAN HISTORY</span>
+            <h2 class="history__title">历史扫描记录</h2>
+          </div>
+          <button class="btn-ghost" id="refreshHistory">刷新</button>
+        </div>
+        <div class="trend" id="trend"></div>
+        <div class="history__list" id="historyList"></div>
+        <div class="history__empty" id="historyEmpty" hidden>暂无记录 —— 先跑一次扫描，结果会自动归档到这里。</div>
+      </section>
+
+      <footer class="footer">
+        <span>Sentinel v1.4.0 · 信息安全专业项目</span>
+        <span class="footer__sep">·</span>
+        <span>仅用于授权环境下的安全评估与教学</span>
+      </footer>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
