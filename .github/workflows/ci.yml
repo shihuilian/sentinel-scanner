@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  scan-self-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax-check all server sources
+        run: |
+          for f in server/*.js; do
+            echo "checking $f"
+            node --check "$f" || exit 1
+          done
+
+      - name: Boot server & run a self-scan against the built-in demo target
+        run: |
+          node server/index.js &
+          SERVER_PID=$!
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:4000/api/health >/dev/null; then break; fi
+            sleep 0.5
+          done
+
+          SCAN_ID=$(curl -sf -X POST http://localhost:4000/api/scan \
+            -H 'Content-Type: application/json' \
+            -d '{"target":"http://localhost:4000/demo"}' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).id))')
+
+          echo "scan id = $SCAN_ID"
+          node -e '
+            const http = require("http");
+            const id = process.argv[1];
+            const req = http.get("http://localhost:4000/api/scan/"+id+"/events");
+            let buffer = "";
+            let findings = 0, done = false;
+            req.on("response", res => {
+              res.setEncoding("utf8");
+              res.on("data", chunk => {
+                buffer += chunk;
+                let idx;
+                while ((idx = buffer.indexOf("\n\n")) >= 0) {
+                  const ev = buffer.slice(0, idx).replace(/^data: /, "");
+                  buffer = buffer.slice(idx + 2);
+                  if (!ev.trim()) continue;
+                  try {
+                    const e = JSON.parse(ev);
+                    if (e.type === "finding") findings++;
+                    if (e.type === "done") { done = true; console.log("TOTAL_FINDINGS="+e.summary.total); }
+                  } catch {}
+                }
+              });
+              res.on("end", () => {
+                if (!done || findings === 0) { console.error("Self-scan failed: no findings produced"); process.exit(1); }
+                console.log("SELF_TEST_OK findings="+findings);
+                process.exit(0);
+              });
+            });
+            req.on("error", e => { console.error("stream error", e.message); process.exit(1); });
+          ' "$SCAN_ID"
+
+          kill $SERVER_PID
