@@ -2,7 +2,7 @@
 
 平时做审计顺手写的扫描器，前端跑浏览器里，后端 Node 起个服务。
 
-主要检测这些：安全头缺不缺、Cookie 标志对不对、TLS 证书过没过期、页面有没有泄露 key/密码/手机号这类敏感信息、常见路径（admin/.env 之类）能不能访问、CSRF token 有没有、开放重定向、CORS 配置、路径遍历、JWT 弱签名，另外还有 XSS、SQL 注入（报错加盲注）、SSRF、XXE 这几个需要发 payload 的。支持带上 Cookie 扫登录后的页面。`/demo` 是故意留了洞的靶机，默认目标就是它。
+主要检测这些：安全头缺不缺、Cookie 标志对不对、TLS 证书过没过期、页面有没有泄露 key/密码/手机号这类敏感信息、常见路径（admin/.env 之类）能不能访问、CSRF token 有没有、开放重定向、CORS 配置、路径遍历、JWT 弱签名，另外还有 XSS、SQL 注入（报错加盲注）、SSRF、XXE 这几个需要发 payload 的。认证态扫描会自动把 Cookie 带到同源请求里，登录后的页面也会被纳入检测。`/demo` 是故意留了洞的靶机，默认目标就是它。
 
 ## 检测模块
 
@@ -71,4 +71,4 @@ REST API：
 
 判断逻辑上：XSS 先确认参数被原样反射、再打带事件处理器的 payload，响应没做 HTML 编码才算（把"被反射"和"能执行"分开看）；SQLi 走报错型单引号加错误特征，再加布尔盲注对比 `' OR '1'='1` 和 `' OR '1'='2` 的响应长度差（阈值 40 字节）；CSRF 提取同源 POST 表单，没有反 CSRF token 也没看到 SameSite Cookie 就判；开放重定向往 `next/url/redirect` 这类参数塞离站地址，用 `manual` 重定向读 Location 看跳不跳；CORS 带 Origin 探，读 `Access-Control-Allow-Origin` 和 `Access-Control-Allow-Credentials`，反射任意源还允许凭据就高危；路径遍历先确认端点吃文件参数（不对 404 滥发），再打 `../`、嵌套、URL/双重编码，看有没有泄露系统文件；JWT 解响应里的 token 头部，`alg=none` 当签名绕过，`kid` 带路径或元字符、`jku` 指外站当伪造风险；SSRF 往服务端 fetch/代理端点塞内网地址（含隐藏的 `/internal/admin-data`），响应回显内部内容就判；XXE 往 `/api/xml` 投外部实体载荷 `<!ENTITY xxe SYSTEM "file:///etc/passwd">`，回显本地文件内容就判。端点探测限 5 路并发，只对 2xx/3xx/401/403/405/500 计分，404 一律不算暴露，避免误报；认证态扫描的 Cookie 只附加到同源请求，端点探测排在注入类前面，把发现的页面丢进蜘蛛集合，让 XSS/SQLi/敏感信息检测也能打到登录后的页面。
 
-别拿来扫没授权的站点，就扫自己东西或者本地 demo 就行。
+仅限已授权目标或本地 `/demo` 使用。
