@@ -1,5 +1,3 @@
-// 封装一层全局 fetch：加超时、统一 header、顺手把 set-cookie 抽出来
-// 另外做了个有上限的并发工具 mapLimit
 
 const DEFAULT_TIMEOUT = 12000;
 

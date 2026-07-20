@@ -1,4 +1,3 @@
-// 杂七杂八的公共小工具，被各个检测模块共用
 
 const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info'];
 
@@ -6,17 +5,14 @@ function severityRank(s) {
   return SEVERITY_ORDER.indexOf(s);
 }
 
-// 用来生成不重复的 finding id，带上时间戳免得撞车
 let counter = 0;
 function makeId(prefix) {
   counter += 1;
   return `${prefix}-${Date.now().toString(36)}-${counter}`;
 }
 
-// 严重度 -> 类 CVSS 基础分，风险仪表和报告都靠它
 const SEV_SCORE = { critical: 9.4, high: 8.1, medium: 5.3, low: 3.2, info: 1.1 };
 
-// 让每条 finding 的 id 前缀能看出是哪类问题，方便看日志
 const CATEGORY_PREFIX = {
   'Security Headers': 'hdr',
   'Cookie Security': 'ck',
@@ -33,7 +29,6 @@ const CATEGORY_PREFIX = {
   'XML External Entity (XXE)': 'xxe',
 };
 
-// 所有发现统一成同一种结构，前端和报告就不用到处判空
 function buildFinding(f) {
   const sev = f.severity;
   return {
@@ -61,7 +56,6 @@ function parseQueryParams(url) {
   return out;
 }
 
-// 从 HTML 里扒出 form 和字段名，后面 XSS/SQLi/CSRF 都要用
 function extractFormFields(html) {
   const forms = [];
   const formRe = /<form\b[^>]*>([\s\S]*?)<\/form>/gi;
@@ -85,7 +79,6 @@ function resolveUrl(base, path) {
   try { return new URL(path, base).toString(); } catch { return base; }
 }
 
-// 端点探测用的常见路径词表
 const COMMON_PATHS = [
   'admin', 'login', 'wp-admin', 'phpmyadmin', 'dashboard', 'config',
   '.env', 'backup', 'api', 'api/keys', 'robots.txt', 'sitemap.xml',
@@ -94,7 +87,6 @@ const COMMON_PATHS = [
   'demo/account',
 ];
 
-// 敏感信息/密钥的正则。邮箱和 IP 也放进来是因为它们常出现在泄露事件里
 const SECRET_PATTERNS = [
   { name: 'AWS Access Key ID', re: /\bAKIA[0-9A-Z]{16}\b/g, severity: 'high' },
   { name: 'AWS Secret Access Key', re: /\baws_secret_access_key\s*=\s*['"]?[A-Za-z0-9/+=]{40}/gi, severity: 'high' },
@@ -107,7 +99,6 @@ const SECRET_PATTERNS = [
   { name: 'US Social Security Number (PII)', re: /\b\d{3}-\d{2}-\d{4}\b/g, severity: 'medium' },
 ];
 
-// 各数据库报错特征，SQLi 报错型检测用
 const SQL_ERROR_SIGNATURES = [
   { db: 'MySQL', re: /(You have an error in your SQL syntax|mysql_fetch_array|MySQLSyntaxError|unknown column|where clause)/i },
   { db: 'PostgreSQL', re: /(PostgreSQL.*ERROR|pg_query|pg_exec|syntax error at or near)/i },
@@ -116,7 +107,6 @@ const SQL_ERROR_SIGNATURES = [
   { db: 'Oracle', re: /(ORA-\d{4,5}|quoted string not properly terminated)/i },
 ];
 
-// 命中这些基本就能认定读到了系统文件（LFI）
 const LFI_SIGNATURES = [
   { os: 'Linux', re: /root:x:\d+:\d+:/ },
   { os: 'Linux', re: /(nobody|xrph|daemon):x:\d+:/ },
@@ -128,7 +118,6 @@ const LFI_SIGNATURES = [
   { os: 'Generic', re: /FORWARD\s*=\s*\(/i },
 ];
 
-// 常见的"文件读取"参数名，路径遍历检测会优先看这些
 const FILE_PARAMS = ['file', 'path', 'filepath', 'page', 'doc', 'document', 'name', 'src', 'f', 'p', 'read', 'download'];
 
 module.exports = {

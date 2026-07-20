@@ -85,7 +85,6 @@ function serveStatic(reqUrl, res) {
   let rel = decodeURIComponent(reqUrl.pathname);
   if (rel === '/' || rel === '') rel = '/index.html';
   const filePath = path.join(PUBLIC_DIR, rel);
-  // 挡一下路径穿越
   if (!filePath.startsWith(PUBLIC_DIR)) { res.writeHead(403); res.end('Forbidden'); return; }
   fs.readFile(filePath, (err, data) => {
     if (err) {
@@ -104,7 +103,6 @@ function serveStatic(reqUrl, res) {
 const server = http.createServer((req, res) => {
   const reqUrl = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
 
-  // API
   if (reqUrl.pathname === '/api/health') return sendJson(res, { ok: true, name: 'Sentinel', version: '1.4.0' });
 
   if (reqUrl.pathname === '/api/scan' && req.method === 'POST') {
@@ -171,7 +169,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 扫描历史
   if (reqUrl.pathname === '/api/scans' && req.method === 'GET') {
     return sendJson(res, { scans: listScans() });
   }
@@ -190,10 +187,8 @@ const server = http.createServer((req, res) => {
     return sendJson(res, { error: 'Method not allowed' }, 405);
   }
 
-  // 故意留洞的演示靶机
   if (demoHandler(req, reqUrl, res)) return;
 
-  // 前端静态文件
   serveStatic(reqUrl, res);
 });
 

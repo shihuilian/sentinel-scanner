@@ -1,6 +1,5 @@
 'use strict';
 
-// 前端所有逻辑都在这一个文件里
 
 const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low', 'info'];
 const SEV_LABEL = { critical: '严重', high: '高危', medium: '中危', low: '低危', info: '信息' };
@@ -16,7 +15,6 @@ const RAIL_LABEL = {
 
 const $ = (id) => document.getElementById(id);
 
-// 主题：亮 / 暗 / 跟随系统
 function applyTheme(theme) {
   const root = document.documentElement;
   root.dataset.theme = theme === 'system'
@@ -33,7 +31,6 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
 document.querySelectorAll('.theme-switch button').forEach((b) =>
   b.addEventListener('click', () => { theme = b.dataset.themeSet; applyTheme(theme); }));
 
-// 背景那张节点星座图，纯 canvas 画的
 (function threatField() {
   const canvas = $('threatfield');
   const ctx = canvas.getContext('2d');
@@ -93,7 +90,6 @@ document.querySelectorAll('.theme-switch button').forEach((b) =>
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
         }
       }
-      // 节点到鼠标之间也拉一条线
       const mdx = a.x - mouse.x, mdy = a.y - mouse.y;
       const mdist = Math.hypot(mdx, mdy);
       if (mdist < R) {
@@ -119,7 +115,6 @@ document.querySelectorAll('.theme-switch button').forEach((b) =>
   document.addEventListener('visibilitychange', () => { document.hidden ? stop() : start(); });
 })();
 
-// 各种 DOM 引用
 const targetInput = $('target');
 const startBtn = $('startBtn');
 const scanView = $('scanView');
@@ -155,7 +150,6 @@ function setStatus(state, text) {
   statusText.textContent = text;
 }
 
-// 扫描主流程：开 SSE，边收事件边渲染
 function startScan() {
   const target = targetInput.value.trim();
   if (!target || status === 'scanning') return;
@@ -231,7 +225,6 @@ function finishError(msg) {
   logLine(`✕ ERROR ${msg}`, 'l-err');
 }
 
-// 结果页渲染
 const GAUGE_LEN = Math.PI * 88;
 
 function renderResults() {
@@ -244,7 +237,6 @@ function renderResults() {
   $('factTotal').textContent = String(summary.total);
   $('factTime').textContent = new Date().toLocaleTimeString();
 
-  // 风险仪表
   const gv = $('gaugeValue');
   gv.style.strokeDasharray = GAUGE_LEN;
   gv.style.strokeDashoffset = GAUGE_LEN;
@@ -255,7 +247,6 @@ function renderResults() {
   band.textContent = bandText;
   band.style.color = bandColor; band.style.borderColor = bandColor;
 
-  // 严重度堆叠条
   const sb = $('severityBar');
   sb.innerHTML = '';
   const total = Math.max(1, summary.total);
@@ -269,7 +260,6 @@ function renderResults() {
     sb.appendChild(span);
   });
 
-  // 过滤器
   const fb = $('filterBar');
   fb.innerHTML = '';
   const mk = (key, label) => {
@@ -366,7 +356,6 @@ function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-// 检测方法学说明（结果页底部那块）
 const METHOD = [
   ['安全头审计', '被动检查 HSTS / CSP / X-Content-Type-Options / X-Frame-Options / Referrer-Policy / Permissions-Policy 是否缺失，并评估 CSP 是否允许 unsafe-inline。'],
   ['Cookie 安全', '解析 Set-Cookie，核查 Secure / HttpOnly / SameSite 标志，识别可被中间人窃取或 XSS 读取的会话凭证。'],
@@ -389,7 +378,6 @@ const METHOD = [
   mb.innerHTML = METHOD.map(([t, d]) => `<div class="method__item"><h4>${t}</h4><p>${d}</p></div>`).join('');
 })();
 
-// 视图切换 + 历史记录
 const scanPane = $('scanPane');
 const historyPane = $('historyPane');
 const navScan = $('navScan');
@@ -414,7 +402,6 @@ function scoreSeverity(score) {
   return 'info';
 }
 
-// 历史页顶部的趋势小图
 function renderTrend(scans) {
   const el = $('trend');
   if (!scans || scans.length < 2) {
@@ -502,7 +489,6 @@ async function deleteHistory(id) {
 
 $('refreshHistory').addEventListener('click', loadHistory);
 
-// 导出
 function download(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -618,13 +604,11 @@ $('printReport').addEventListener('click', () => {
   setTimeout(() => w.print(), 350);
 });
 
-// 交互绑定
 startBtn.addEventListener('click', startScan);
 targetInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') startScan(); });
 document.querySelectorAll('.preset').forEach((b) =>
   b.addEventListener('click', () => { targetInput.value = `${window.location.origin}${b.dataset.preset}`; startScan(); }));
 
-// 主按钮一个轻微磁吸效果
 startBtn.addEventListener('mousemove', (e) => {
   const r = startBtn.getBoundingClientRect();
   const x = e.clientX - r.left - r.width / 2;

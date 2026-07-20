@@ -10,7 +10,6 @@ function sameOrigin(url, ctx) {
   try { return new URL(url).host === ctx.host; } catch { return false; }
 }
 
-// 把 value 打到某个参数上，GET 走 query，POST 走 form
 async function sendParam(point, value) {
   if (point.method === 'GET') {
     const u = new URL(point.url);
@@ -25,7 +24,6 @@ async function sendParam(point, value) {
   });
 }
 
-// 安全头
 const HEADER_CHECKS = [
   { header: 'strict-transport-security', severity: 'medium', title: 'Missing Strict-Transport-Security (HSTS)',
     remediation: 'Add "Strict-Transport-Security: max-age=31536000; includeSubDomains" to force HTTPS and prevent downgrade (SSL-stripping) attacks.',
@@ -69,7 +67,6 @@ async function checkHeaders(ctx) {
     }
   }
 
-  // 顺手看看 CSP 是不是又放了 unsafe-inline
   const csp = res.headers['content-security-policy'];
   if (csp) {
     if (/script-src[^;]*unsafe-inline/.test(csp) || /default-src[^;]*unsafe-inline/.test(csp)) {
@@ -101,7 +98,6 @@ async function checkHeaders(ctx) {
   }
 }
 
-// cookie
 async function checkCookies(ctx) {
   const res = await request(ctx.target, { method: 'GET' });
   if (res.error || res.status === 0) return;
@@ -135,7 +131,6 @@ async function checkCookies(ctx) {
   });
 }
 
-// TLS/证书
 async function checkSsl(ctx) {
   if (ctx.protocol !== 'https:') {
     ctx.emitProgress('TLS / Certificate', 'Target is not HTTPS, skipping certificate analysis');
@@ -197,7 +192,6 @@ async function checkSsl(ctx) {
   ctx.emitProgress('TLS / Certificate', `Certificate issuer: ${cert.issuer?.O ?? cert.issuer?.CN ?? 'unknown'}`);
 }
 
-// XSS
 const PROBE = 'SENTINEL_PROBE_8821';
 const XSS_PAYLOAD = `"><img src=x onerror=alert('SENTINEL_XSS')>`;
 
@@ -241,7 +235,6 @@ async function checkXss(ctx) {
   });
 }
 
-// SQLi
 const ERROR_PAYLOAD = `'`;
 const TRUE_PAYLOAD = `' OR '1'='1`;
 const FALSE_PAYLOAD = `' OR '1'='2`;
@@ -300,7 +293,6 @@ async function checkSqli(ctx) {
   });
 }
 
-// 敏感信息泄露
 async function scanSecretsAt(ctx, url) {
   const res = await request(url, { method: 'GET' });
   if (res.error || res.status === 0) return;
@@ -344,7 +336,6 @@ async function checkSecrets(ctx) {
   await mapLimit(uniq, 4, (url) => scanSecretsAt(ctx, url));
 }
 
-// 端点发现
 async function checkEndpoints(ctx) {
   const targets = COMMON_PATHS.map((p) => resolveUrl(ctx.baseUrl, p));
   ctx.emitProgress('Endpoint Discovery', `Probing ${targets.length} common paths`);
@@ -369,7 +360,6 @@ async function checkEndpoints(ctx) {
   });
 }
 
-// CSRF
 const CSRF_TOKEN_RE = /(csrf|_token|token|authenticity|xsrf|anticsrf)/i;
 
 async function checkCsrf(ctx) {
@@ -399,7 +389,6 @@ async function checkCsrf(ctx) {
   });
 }
 
-// 开放重定向
 const REDIRECT_PARAMS = ['next', 'url', 'redirect', 'return', 'r', 'to', 'target'];
 const OFF_ORIGIN = 'https://oast.sentinel.example';
 
@@ -429,7 +418,6 @@ async function checkOpenRedirect(ctx) {
   });
 }
 
-// CORS
 const PROBE_ORIGIN = 'https://oast.sentinel.example';
 
 async function checkCors(ctx) {
@@ -481,7 +469,6 @@ async function checkCors(ctx) {
   }
 }
 
-// 路径遍历 / LFI
 const TRAVERSAL_PAYLOADS = [
   { raw: '../../../../../../etc/passwd', label: '../../../../../../etc/passwd' },
   { raw: '....//....//....//....//etc/passwd', label: '....// nested' },
@@ -499,7 +486,6 @@ async function checkTraversal(ctx) {
   ctx.emitProgress('Path Traversal', `Identifying file-read endpoints (${candidates.length} candidates)`);
 
   await mapLimit(candidates, 4, async (base) => {
-    // 先用一个良性 file 参数探一下，确认这端点确实消费文件参数，免得对着 404 乱发载荷
     const probeUrl = base.includes('?') ? `${base}&file=sentinel-probe.txt` : `${base}?file=sentinel-probe.txt`;
     const probe = await request(probeUrl, { method: 'GET', redirect: 'manual' });
     if (probe.error || [404, 405, 410].includes(probe.status)) return;
@@ -524,7 +510,6 @@ async function checkTraversal(ctx) {
   });
 }
 
-// JWT
 function b64urlDecode(s) {
   let t = s.replace(/-/g, '+').replace(/_/g, '/');
   while (t.length % 4) t += '=';
@@ -585,7 +570,6 @@ async function checkJwt(ctx) {
   }
 }
 
-// SSRF
 const SSRF_PARAMS = ['url', 'uri', 'dest', 'redirect_uri', 'image', 'img', 'avatar', 'remote', 'site', 'page', 'load', 'proxy', 'r', 'u', 'file', 'path', 'to', 'target'];
 const SSRF_ENDPOINTS = ['fetch', 'proxy', 'load', 'api/fetch', 'api/proxy', 'demo/fetch', 'demo/proxy', 'read'];
 const SSRF_INTERNAL = '/internal/admin-data'; // 只有 SSRF 才够得着的隐藏端点
@@ -624,7 +608,6 @@ async function checkSsrf(ctx) {
   });
 }
 
-// XXE
 const XXE_ENDPOINTS = ['api/xml', 'xml', 'soap', 'upload', 'demo/xml', 'parse', 'import'];
 const XXE_PAYLOADS = [
   { os: 'Windows', xml: `<?xml version="1.0"?><!DOCTYPE r [ <!ENTITY xxe SYSTEM "file:///C:/Windows/win.ini"> ]><r>&xxe;</r>` },

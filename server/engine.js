@@ -8,7 +8,6 @@ function normalizeTarget(input) {
   return t;
 }
 
-// 认证扫描：先 POST 登录表单，把会话 cookie 抓出来（name=value 那段）
 async function doLogin(auth) {
   const userField = auth.usernameField || 'username';
   const passField = auth.passwordField || 'password';
@@ -40,7 +39,6 @@ async function runScan(target, onEvent, options = {}) {
   const baseUrl = `${url.protocol}//${url.host}`;
   const findings = [];
 
-  // 先搞定登录，这样后面所有同源请求（含端点探测）都带会话
   let authCookie = options.cookie || '';
   if (options.auth && options.auth.loginUrl) {
     onEvent({ type: 'progress', check: 'Authentication', index: 0, total: CHECKS.length, message: `Logging in via ${options.auth.loginUrl}…` });

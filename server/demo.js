@@ -1,7 +1,3 @@
-// 故意留了一堆洞的靶机，给扫描器当安全合法的演示目标
-// 页面：/demo 着陆页、/demo/login、/demo/search、/demo/account、/download、/fetch、/api/xml
-// 还有 admin / config / .env / backup 等一堆"暴露端点"
-// 别把这个挂公网，仅供本地演示
 
 function sendHtml(res, html, status = 200, extra = {}) {
   res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8', ...extra });
@@ -16,7 +12,6 @@ function sendJson(res, obj, status = 200) {
   res.end(JSON.stringify(obj));
 }
 
-// 一个故意不安全的 JWT：alg=none，签名为空
 const DEMO_JWT = 'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJ1c2VyIjoiYWRtaW4iLCJyb2xlIjoiYWRtaW4ifQ.';
 
 const fs = require('fs');
@@ -29,7 +24,6 @@ function demoHandler(req, reqUrl, res) {
   const pathname = reqUrl.pathname;
   const q = reqUrl.searchParams;
 
-  // 着陆页
   if (pathname === '/demo') {
     // 故意的开放重定向：?next=https://evil.example 就跳走了
     const next = q.get('next');
@@ -39,10 +33,8 @@ function demoHandler(req, reqUrl, res) {
       return true;
     }
 
-    // 不安全的会话 cookie（没 HttpOnly / SameSite），喂给 cookie 检测
     res.setHeader('Set-Cookie', 'session=tok-demo-123; Path=/');
 
-    // CORS 配错：反射任意 Origin 还允许带凭据（高危）
     const origin = req.headers.origin;
     if (origin) {
       res.setHeader('Access-Control-Allow-Origin', origin);
@@ -84,7 +76,6 @@ function demoHandler(req, reqUrl, res) {
     return true;
   }
 
-  // search：反射型 XSS + SQLi
   if (pathname === '/demo/search') {
     const query = q.get('q') ?? '';
     if (query.includes("'")) {
@@ -97,7 +88,6 @@ function demoHandler(req, reqUrl, res) {
     return true;
   }
 
-  // login：SQLi + 没 CSRF token + 真会话
   if (pathname === '/demo/login') {
     const handleLogin = (username, password) => {
       if (String(password ?? '').includes("'")) {
@@ -123,7 +113,6 @@ function demoHandler(req, reqUrl, res) {
     return true;
   }
 
-  // account：要登录，有反射 XSS 参数 + PII（认证态扫描会扫到）
   if (pathname === '/demo/account') {
     const ck = req.headers.cookie || '';
     const sid = (/(?:^|;\s*)session=([^;]+)/.exec(ck) || [])[1];
@@ -141,14 +130,12 @@ function demoHandler(req, reqUrl, res) {
     return true;
   }
 
-  // subscribe：CSRF（无 token）
   if (pathname === '/demo/subscribe') {
     const email = q.get('email') ?? '';
     sendHtml(res, `<html><body><h1>Subscribed</h1><p>Thanks, ${email}</p></body></html>`);
     return true;
   }
 
-  // profile
   if (pathname === '/demo/profile') {
     sendHtml(res, `<!doctype html><html><body>
       <h1>Admin Profile</h1>
@@ -158,12 +145,10 @@ function demoHandler(req, reqUrl, res) {
     return true;
   }
 
-  // download：路径遍历 / LFI 演示
   if (pathname === '/demo/download' || pathname === '/download') {
     const file = q.get('file') ?? '';
     const isTraversal = /(\.\.\/|\.\.\\|%2e%2e|%252e|\.\.%2f)/i.test(file);
     if (isTraversal) {
-      // 模拟 LFI 成功：服务器"泄露"了一个系统文件
       sendText(res,
 `root:x:0:0:root:/root:/bin/bash
 daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
@@ -176,7 +161,6 @@ nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
     return true;
   }
 
-  // SSRF：服务端去 fetch 用户给的 URL
   if (pathname === '/fetch' || pathname === '/demo/fetch') {
     const furl = q.get('url') || q.get('u');
     if (!furl) { sendText(res, 'missing url parameter', 400); return true; }
@@ -186,7 +170,6 @@ nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
     return true;
   }
 
-  // XXE：一个故意不设防的 XML 解析器，会解析外部实体
   if (pathname === '/api/xml' || pathname === '/xml') {
     if (req.method !== 'POST') { sendText(res, 'POST an XML body', 405); return true; }
     let body = '';
@@ -208,13 +191,11 @@ nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
     return true;
   }
 
-  // 只有 SSRF 才能碰到的内网端点（不进端点探测）
   if (pathname === '/internal/admin-data') {
     sendJson(res, { flag: 'INTERNAL_SECRET_9f3c', note: 'intentionally exposed only to internal network / SSRF' }, 200);
     return true;
   }
 
-  // 一堆"暴露端点"（喂给发现探测 + 密钥检测）
   if (pathname === '/login') { res.setHeader('Set-Cookie', 'session=tok-demo-123; Path=/'); sendHtml(res, '<html><body><h1>Logged in (demo)</h1></body></html>'); return true; }
   if (pathname === '/admin') { sendHtml(res, '<html><body><h1>Admin Panel</h1><p>Internal only.</p></body></html>'); return true; }
   if (pathname === '/config') { sendHtml(res, '<html><body><h1>Config</h1></body></html>'); return true; }
