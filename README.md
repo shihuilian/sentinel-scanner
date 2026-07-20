@@ -2,13 +2,7 @@
 
 平时挖漏洞/做审计的时候随手写的一个扫描器，跑在浏览器里，Node 起个后端就行。
 
-能扫的东西：
-
-- 不用登录就能看的：安全头缺没缺、Cookie 标志、TLS 证书过没过期、页面里有没有泄露 key/密码/手机号、常见路径（admin、.env 之类）能不能访问、CSRF token 有没有、会不会被开放重定向坑、CORS 配置对不对、路径遍历、JWT 有没有弱签名
-- 需要发 payload 的：XSS、SQL 注入（报错+盲注）、SSRF、XXE
-- 登录之后也能扫：带上 Cookie 把认证后的页面一起检查
-
-`/demo` 是个故意留了洞的靶机，本地 `node server/index.js` 起来之后默认就扫它，拿来试手用。
+能扫的东西分两类：一类是不登录就能看的——安全头缺不缺、Cookie 标志对不对、TLS 证书过没过期、页面里有没有泄露 key/密码/手机号、常见路径（admin、.env 之类）能不能访问、CSRF token 有没有、会不会被开放重定向坑、CORS 配置对不对、路径遍历、JWT 有没有弱签名；另一类是要发 payload 的——XSS、SQL 注入（报错加盲注）、SSRF、XXE。登录之后也能扫，带上 Cookie 把认证后的页面一起检查。`/demo` 是故意留了洞的靶机，本地起服务后默认就扫它。
 
 ## 检测模块
 
@@ -71,20 +65,10 @@ REST API：
 | GET | `/api/scans/:id` | 单次扫描完整记录 |
 | DELETE | `/api/scans/:id` | 删除一条历史记录 |
 
-风险评分：`raw = Σ 严重度权重`；`riskScore = 100·(1 − e^(−raw/18))`，少量高危即判严重，但不会无限线性膨胀。
+风险评分：`raw = Σ 严重度权重`；`riskScore = 100·(1 − e^(−raw/18))`，少量高危即判严重，但不无限线性膨胀。
 
-## 检测方法
+## 怎么判断的
 
-- **XSS**：先确认参数被原样反射，再注入带事件处理器的 payload，响应里未做 HTML 编码就判漏洞（区分"被反射"和"可执行"）。
-- **SQLi**：报错型单引号 + 错误特征匹配；布尔盲注对比 `' OR '1'='1` 与 `' OR '1'='2` 的响应长度差（阈值 40 字节）。
-- **CSRF**：提取同源 POST 表单，无反 CSRF token 且没看到 SameSite Cookie 就判。
-- **开放重定向**：对 `next/url/redirect` 参数注入离站地址，用 `manual` 重定向读 Location 判断是否跳走。
-- **CORS**：带 Origin 探，读 `Access-Control-Allow-Origin` 与 `Access-Control-Allow-Credentials`；反射任意源且允许凭据就判高危。
-- **路径遍历 / LFI**：先确认端点吃文件参数（避免对 404 滥发），再打 `../`、嵌套、URL/双重编码，看是否泄露系统文件。
-- **JWT**：取响应里的 JWT 解头部——`alg=none` 视为签名绕过；`kid` 含路径/元字符、`jku` 指外站视为伪造风险。
-- **SSRF**：对服务端 `fetch` / 代理端点注入内网地址（含隐藏端点 `/internal/admin-data`），响应回显内部内容就判。
-- **XXE**：向 `/api/xml` 投外部实体载荷（`<!ENTITY xxe SYSTEM "file:///etc/passwd">`），响应回显本地文件内容就判。
-- **认证态扫描**：捕获的 Cookie 只附加到同源请求；端点探测先于注入类，把发现页加入蜘蛛集合，让 XSS/SQLi/敏感信息检测也能打到登录后的页面。
-- **端点探测**：限 5 路并发，只对 2xx/3xx/401/403/405/500 计分，未知路径返回 404 不算暴露（避免误报）。
+判断逻辑上：XSS 先确认参数被原样反射、再打带事件处理器的 payload，响应没做 HTML 编码才算（把"被反射"和"能执行"分开看）；SQLi 走报错型单引号加错误特征，再加布尔盲注对比 `' OR '1'='1` 和 `' OR '1'='2` 的响应长度差（阈值 40 字节）；CSRF 提取同源 POST 表单，没有反 CSRF token 也没看到 SameSite Cookie 就判；开放重定向往 `next/url/redirect` 这类参数塞离站地址，用 `manual` 重定向读 Location 看跳不跳；CORS 带 Origin 探，读 `Access-Control-Allow-Origin` 和 `Access-Control-Allow-Credentials`，反射任意源还允许凭据就高危；路径遍历先确认端点吃文件参数（不对 404 滥发），再打 `../`、嵌套、URL/双重编码，看有没有泄露系统文件；JWT 解响应里的 token 头部，`alg=none` 当签名绕过，`kid` 带路径或元字符、`jku` 指外站当伪造风险；SSRF 往服务端 fetch/代理端点塞内网地址（含隐藏的 `/internal/admin-data`），响应回显内部内容就判；XXE 往 `/api/xml` 投外部实体载荷 `<!ENTITY xxe SYSTEM "file:///etc/passwd">`，回显本地文件内容就判。端点探测限 5 路并发，只对 2xx/3xx/401/403/405/500 计分，404 一律不算暴露，避免误报；认证态扫描的 Cookie 只附加到同源请求，端点探测排在注入类前面，把发现的页面丢进蜘蛛集合，让 XSS/SQLi/敏感信息检测也能打到登录后的页面。
 
 别拿来扫没授权的站点，就扫自己东西或者本地 demo 就行。
