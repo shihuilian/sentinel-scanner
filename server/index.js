@@ -12,7 +12,6 @@ function ensureDataDir() {
   try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch {}
 }
 
-// 把完成的扫描存下来，方便以后回看 / 做趋势对比
 function saveScan(id, target, summary, findings) {
   ensureDataDir();
   const record = { id, target, summary, findings, finishedAt: new Date().toISOString() };
@@ -44,7 +43,6 @@ function deleteScan(id) {
   try { fs.unlinkSync(path.join(DATA_DIR, `${id}.json`)); return true; } catch { return false; }
 }
 
-// 一次扫描的 SSE 事件会分发给（可能多个）客户端
 class Scan {
   constructor() { this.subs = []; this.buffer = []; this.ended = false; }
   subscribe(res) {
@@ -88,8 +86,6 @@ function serveStatic(reqUrl, res) {
   if (!filePath.startsWith(PUBLIC_DIR)) { res.writeHead(403); res.end('Forbidden'); return; }
   fs.readFile(filePath, (err, data) => {
     if (err) {
-      // 不做 SPA fallback：未知路径返回 404，端点发现的"暴露"判定才是真的
-      // （否则 fallback 一律 200 会造出一堆假阳性的"暴露路径"）
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end('Not found');
       return;
@@ -196,4 +192,3 @@ server.listen(PORT, () => {
   console.log(`\n  Sentinel scanner listening on http://localhost:${PORT}`);
   console.log(`  Scan the built-in demo:  POST /api/scan  {"target":"http://localhost:${PORT}/demo"}\n`);
 });
-// do not fall back to index.html for unknown routes

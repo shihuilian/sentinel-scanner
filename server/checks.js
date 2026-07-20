@@ -329,7 +329,6 @@ async function scanSecretsAt(ctx, url) {
 }
 
 async function checkSecrets(ctx) {
-  // 扫描着陆页 + 登录后才出现的页面，后者往往比公开页漏更多 PII
   const pages = [ctx.target, ...ctx.discovered.filter((u) => sameOrigin(u, ctx))];
   const uniq = [...new Set(pages)];
   ctx.emitProgress('Sensitive Data Exposure', `Scanning ${uniq.length} page(s) for leaked secrets / PII`);
@@ -572,7 +571,7 @@ async function checkJwt(ctx) {
 
 const SSRF_PARAMS = ['url', 'uri', 'dest', 'redirect_uri', 'image', 'img', 'avatar', 'remote', 'site', 'page', 'load', 'proxy', 'r', 'u', 'file', 'path', 'to', 'target'];
 const SSRF_ENDPOINTS = ['fetch', 'proxy', 'load', 'api/fetch', 'api/proxy', 'demo/fetch', 'demo/proxy', 'read'];
-const SSRF_INTERNAL = '/internal/admin-data'; // 只有 SSRF 才够得着的隐藏端点
+const SSRF_INTERNAL = '/internal/admin-data';
 const SSRF_MARKERS = ['INTERNAL_SECRET', 'only reachable from internal'];
 
 async function checkSsrf(ctx) {
@@ -632,8 +631,8 @@ async function checkXxe(ctx) {
       });
       if (res.error) continue;
       const disclosed =
-        /root:x:\d+:\d+/i.test(res.body) ||          // /etc/passwd
-        /\[extensions\]/i.test(res.body) ||          // windows win.ini
+        /root:x:\d+:\d+/i.test(res.body) ||
+        /\[extensions\]/i.test(res.body) ||
         /for 16-bit app support/i.test(res.body);
       if (disclosed) {
         found = true;
@@ -651,8 +650,6 @@ async function checkXxe(ctx) {
   });
 }
 
-// 顺序：先做被动检查 + 端点发现，再做主动注入；端点发现提前跑，
-// 让它挖到的页面能喂给后面的蜘蛛式检测（XSS/SQLi/密钥）
 const CHECKS = [
   { name: 'Security Headers', run: checkHeaders },
   { name: 'Endpoint Discovery', run: checkEndpoints },
@@ -671,4 +668,3 @@ const CHECKS = [
 ];
 
 module.exports = { CHECKS };
-// spider runs after endpoint discovery

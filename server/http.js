@@ -1,8 +1,6 @@
 
 const DEFAULT_TIMEOUT = 12000;
 
-// 认证扫描时存一下抓到的会话 cookie，只挂到同源请求上
-// 不然把 cookie 带给 SSRF/CORS 那些离站探测目标就泄了
 let _authCookie = '';
 let _authHost = '';
 function setAuth(cookie, host) { _authCookie = cookie || ''; _authHost = host || ''; }
@@ -59,7 +57,6 @@ async function request(url, opts = {}) {
   }
 }
 
-// 限制并发数的小工具，避免一次性把目标打爆
 async function mapLimit(items, limit, worker) {
   const results = new Array(items.length);
   let cursor = 0;
@@ -74,4 +71,3 @@ async function mapLimit(items, limit, worker) {
 }
 
 module.exports = { request, mapLimit, setAuth };
-// setAuth only attaches cookie on same-origin requests

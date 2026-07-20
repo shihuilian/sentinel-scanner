@@ -17,7 +17,6 @@ const DEMO_JWT = 'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJ1c2VyIjoiYWRtaW4iLCJyb2
 const fs = require('fs');
 const { request } = require('./http');
 
-// 演示登录用的内存会话表（这样"认证态扫描"才有真实要打的受保护页面）
 const SESSIONS = new Map();
 
 function demoHandler(req, reqUrl, res) {
@@ -25,7 +24,6 @@ function demoHandler(req, reqUrl, res) {
   const q = reqUrl.searchParams;
 
   if (pathname === '/demo') {
-    // 故意的开放重定向：?next=https://evil.example 就跳走了
     const next = q.get('next');
     if (next && /^(https?:\/\/|\/\/)/i.test(next)) {
       res.writeHead(302, { Location: next });
@@ -97,7 +95,7 @@ function demoHandler(req, reqUrl, res) {
       const sid = 'sess_' + Math.random().toString(36).slice(2, 12);
       SESSIONS.set(sid, { user: username || 'guest' });
       res.setHeader('Set-Cookie', `session=${sid}; Path=/; HttpOnly`);
-      res.setHeader('X-Session', sid); // 浏览器拿不到 Set-Cookie，演示的"登录靶机"用这个取会话
+      res.setHeader('X-Session', sid);
       sendHtml(res, `<html><body><h1>Logged in (demo)</h1><p>Welcome, ${username || 'guest'}.</p></body></html>`);
     };
     if (req.method === 'POST') {
@@ -181,7 +179,7 @@ nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
         const fm = /^file:\/\/(.+)$/i.exec(m[1]);
         if (fm) {
           let fp = fm[1];
-          if (/^\/[A-Za-z]:/.test(fp)) fp = fp.replace(/^\//, ''); // /C:/… → C:/…
+          if (/^\/[A-Za-z]:/.test(fp)) fp = fp.replace(/^\//, '');
           try { out = fs.readFileSync(fp, 'utf8').slice(0, 400); }
           catch { out = `cannot read ${fp}`; }
         }
@@ -221,4 +219,3 @@ nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
 }
 
 module.exports = { demoHandler };
-// /demo/account requires the session cookie

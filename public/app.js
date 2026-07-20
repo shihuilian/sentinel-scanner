@@ -409,7 +409,7 @@ function renderTrend(scans) {
     return;
   }
   const w = 720, h = 64, pad = 10;
-  const vals = scans.slice().reverse().map((s) => s.riskScore); // 从旧到新
+  const vals = scans.slice().reverse().map((s) => s.riskScore);
   const stepX = (w - pad * 2) / (vals.length - 1);
   const y = (v) => (h - pad - (v / 100) * (h - pad * 2)).toFixed(1);
   const x = (i) => (pad + i * stepX).toFixed(1);
@@ -617,8 +617,6 @@ startBtn.addEventListener('mousemove', (e) => {
 });
 startBtn.addEventListener('mouseleave', () => { startBtn.style.transform = 'translate(0,0)'; });
 
-// "登录靶机"：POST 演示登录，从 X-Session 头里把会话取出来填进"会话"框
-// （浏览器读不到 Set-Cookie，所以服务端单独用 X-Session 镜像了一份）
 const authBtn = $('authBtn');
 const cookieInput = $('cookie');
 authBtn.addEventListener('click', async () => {

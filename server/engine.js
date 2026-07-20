@@ -26,8 +26,6 @@ async function doLogin(auth) {
   return raw.split(';')[0];
 }
 
-// 风险评分用饱和曲线：几个高危就能把分拉满，但不会线性叠加到离谱
-// raw 是每个 finding 的严重度权重之和，再 1 - e^(-raw/k) 压到 0..100
 function computeRiskScore(findings) {
   const raw = findings.reduce((acc, f) => acc + (SEV_SCORE[f.severity] ?? 5), 0);
   return Math.min(100, Math.round(100 * (1 - Math.exp(-raw / 18))));
@@ -84,4 +82,3 @@ async function runScan(target, onEvent, options = {}) {
 }
 
 module.exports = { normalizeTarget, runScan };
-// discovered pages feed back into xss/sqli/secrets checks

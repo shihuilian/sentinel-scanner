@@ -126,4 +126,3 @@ module.exports = {
   COMMON_PATHS, SECRET_PATTERNS, SQL_ERROR_SIGNATURES,
   LFI_SIGNATURES, FILE_PARAMS,
 };
-// SECRET_PATTERNS must stay in sync with checks.js
